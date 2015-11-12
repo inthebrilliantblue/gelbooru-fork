@@ -30,7 +30,7 @@
   var FileDragHover, FileSelectHandler, SIZELIMIT, abort, addEvent, addEvents, append, asap, busy, bytesToString, clean, current, d, dropEl, error, escapeRE, fCount, failedCount, files, form, forms, input, keepGoing, load, logError, mkElement, mkForm, mkInput, mkThumb, myTags, name, prepare, progress, progressCell, progressRow, r, removeForm, roundToPlace, showError, size, total, upload, uploadAll, uploadAllBtn, uploadFail, uploadingAll,
     slice = [].slice;
 
-  SIZELIMIT = 10 * 1024 * 1024;
+  SIZELIMIT = 64 * 1024 * 1024;
 
   d = document;
 
