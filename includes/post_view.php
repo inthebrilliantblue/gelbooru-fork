@@ -81,7 +81,7 @@
 		}
 		else
 		{
-			echo '<img alt="img" id="image" onclick="Note.toggle();" src="f6ca1c7d5d00a2a3fb4ea2f7edfa0f96a6d09c11717f39facabad2d724f16fbb/images/'.$post_data['directory'].'/'.$post_data['image'].'" style="margin-right: 70px;"/>';
+			echo '<a href="f6ca1c7d5d00a2a3fb4ea2f7edfa0f96a6d09c11717f39facabad2d724f16fbb/images/'.$post_data['directory'].'/'.$post_data['image'].'"><img alt="img" id="image" onclick="Note.toggle();" src="f6ca1c7d5d00a2a3fb4ea2f7edfa0f96a6d09c11717f39facabad2d724f16fbb/images/'.$post_data['directory'].'/'.$post_data['image'].'" style="margin-right: 70px;"/></a>';
 		}
 		echo '<br />Posted on '.$post_data['creation_date'].' by  <a href="index.php?page=account_profile&amp;uname='.$post_data['owner'].'">'.$post_data['owner'].'</a><br /><p id="note-count"></p>
 		<script type="text/javascript">
