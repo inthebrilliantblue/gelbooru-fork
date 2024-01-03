@@ -1,11 +1,11 @@
 /*
- * 
+ *
  * $ object largely based on 4chan X's $, which is largely based on jQuery.
  * non-chainable.
- * 
+ *
  * Copyright (c) 2009-2011 James Campos <james.r.campos@gmail.com>
  * Copyright (c) 2012-2014 Nicolas Stepien <stepien.nicolas@gmail.com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -14,7 +14,7 @@
  * copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following
  * conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
@@ -30,7 +30,7 @@
 
 (function() {
   "use strict";
-  var $, FNLIMIT, LIMIT, PRELOAD, SimpleDict, THRESHOLD, cb, d, err, fer, g, loadGallery, mkImage, mkURL, preload, query, queryImages, setImage, setup, setupImages, updateImages,
+  var $, FNLIMIT, LIMIT, PRELOAD, SimpleDict, THRESHOLD, cb, d, err, formatTime, g, handleVid, loadGallery, mkImage, mkImgEl, mkURL, padNum, preload, preloaded, preloads, query, queryImages, setImage, setup, setupImages, updateImages, vidMeta,
     slice = [].slice;
 
   d = document;
@@ -46,6 +46,8 @@
   g = {
     nodes: {}
   };
+
+  vidMeta = null;
 
   (function() {
     var z;
@@ -82,8 +84,8 @@
       var err;
       try {
         return fn();
-      } catch (_error) {
-        err = _error;
+      } catch (error1) {
+        err = error1;
         console.log(err.message);
         return console.log(err.stack);
       }
@@ -95,16 +97,21 @@
     }
   };
 
+  $["throw"] = function(error) {
+    console.log("Something went wrong. Please file a bug report @ https://github.com/zixaphir/gelbooru-fork including the following:");
+    console.log(error.message);
+    return console.log(error.stack);
+  };
+
   $.on = function(target, events, fun, once) {
     var event, fn, func, j, len1, ref;
     fn = function() {
       var err;
       try {
         return fun.apply(this, arguments);
-      } catch (_error) {
-        err = _error;
-        console.log(err.message);
-        return console.log(err.stack);
+      } catch (error1) {
+        err = error1;
+        return $["throw"](err);
       }
     };
     func = once ? function() {
@@ -161,6 +168,23 @@
     return $.nodes(slice.call(el.children));
   };
 
+  $.escape = (function() {
+    var encode;
+    encode = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '"': '&quot;',
+      '>': '&gt;',
+      "'": '&#039;',
+      '\/': "&#x2F;"
+    };
+    return function(text) {
+      return text.replace(/[&<>"']/g, function(t) {
+        return encode[t];
+      });
+    };
+  })();
+
   $.add = function(root, nodes) {
     root.appendChild($.nodes(nodes));
     return root;
@@ -198,18 +222,17 @@
           return -1;
         }
         return this.keys.indexOf(key);
-      } else {
-        i = 0;
-        ref = this.keys;
-        for (j = 0, len1 = ref.length; j < len1; j++) {
-          key = ref[j];
-          if (this[key] === obj) {
-            return i;
-          }
-          i++;
-        }
-        return -1;
       }
+      i = 0;
+      ref = this.keys;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        key = ref[j];
+        if (this[key] === obj) {
+          return i;
+        }
+        i++;
+      }
+      return -1;
     };
 
     SimpleDict.prototype.rm = function(key) {
@@ -254,18 +277,39 @@
 
   })();
 
-  preload = function(image) {
-    var galLength, i, len, results;
+
+  /*
+   * media, unlike iframes, will download by merely existing as an object,
+   * and will also be unloaded by garbage collection with no references attached.
+  preload = (image) ->
+    galLength = g.images.length
+    i = g.currentImageIndex
+    len = Math.min galLength, i + PRELOAD + 1
+    $.el 'img', src: g.images[g.images.keys[i]].url while ++i < len
+   */
+
+  preloads = {};
+
+  preloaded = {};
+
+  preload = function() {
+    var galLength, i, image, img, len;
     galLength = g.images.length;
     i = g.currentImageIndex;
     len = Math.min(galLength, i + PRELOAD + 1);
-    results = [];
     while (++i < len) {
-      results.push($.el('img', {
-        src: g.images[g.images.keys[i]].url
-      }));
+      image = g.images[g.images.keys[i]];
+      if (preloads[image.id] || preloaded[image.id]) {
+        return;
+      }
+      img = preloads[image.id] = mkImgEl(image);
+      $.asap((function() {
+        return img.img.complete || img.img.readyState > 3;
+      }), function() {
+        preloaded[image.id] = true;
+        return delete preloads[image.id];
+      });
     }
-    return results;
   };
 
   loadGallery = function() {
@@ -273,7 +317,7 @@
     try {
       g.gallery = gal = $.el('div', {
         id: 'a-gallery',
-        innerHTML: "<div class=\"gal-prev\"></div>\n<div class=\"gal-image\">\n  <div>\n    <div class=\"gal-info\">\n      INFO\n      <div class=\"gal-ex-info\">\n      </div>\n    </div>\n    <div class=\"gal-close\">✖</div>\n    <a class=\"current\"></a>\n  </div>\n</div>\n<div class=\"gal-next\"></div>\n<div class=\"gal-thumbnails\"></div>"
+        innerHTML: "<div class=\"gal-prev\"></div>\n<div class=\"gal-image\">\n  <div>\n    <div class=\"gal-info\">\n      INFO\n      <span id=\"gal-vid\"></span>\n      <div class=\"gal-ex-info\">\n      </div>\n    </div>\n    <div class=\"gal-close\">&#x274c</div>\n    <a class=\"current\"></a>\n  </div>\n</div>\n<div class=\"gal-next\"></div>\n<div class=\"gal-thumbnails\"></div>"
       });
       nodes = g.nodes;
       nodes.prev = prev = $('.gal-prev', gal);
@@ -287,10 +331,9 @@
       $.on(d, 'keydown', cb.keybinds);
       cb.hideGallery();
       return d.body.appendChild(gal);
-    } catch (_error) {
-      err = _error;
-      console.log(err.message);
-      return console.log(err.stack);
+    } catch (error1) {
+      err = error1;
+      return $["throw"](err);
     }
   };
 
@@ -362,27 +405,64 @@
       return fn();
     },
     pause: function() {
-      var current, el;
-      current = $('.gal-image a', g.gallery);
-      if (current) {
-        el = current.firstElementChild;
-      }
+      var el;
+      el = $('.gal-image video', g.gallery);
       if (el && el.pause) {
         return el.pause();
       }
+    },
+    cleanVid: function() {
+      var el, err;
+      el = $('.gal-image video', g.gallery);
+      try {
+        if (el) {
+          el.pause();
+          return el.src = '';
+        }
+      } catch (error1) {
+        err = error1;
+        return $["throw"](err);
+      }
     }
   };
 
-  fer = function(arr, fn) {
-    var item, j, len1;
-    for (j = 0, len1 = arr.length; j < len1; j++) {
-      item = arr[j];
-      fn(item);
+  mkImgEl = function(image) {
+    var img, ready;
+    switch (image.type) {
+      case "jpg":
+      case "jpeg":
+      case "gif":
+      case "png":
+        img = $.el('img', {
+          src: image.url,
+          alt: image.tags
+        });
+        ready = function() {
+          return img.complete;
+        };
+        break;
+      default:
+        img = $.el('video', {
+          src: image.url,
+          poster: image.thumb,
+          autoplay: true,
+          loop: true,
+          controls: true
+        });
+        img.load();
+        ready = function() {
+          return img.readyState > 2;
+        };
+        image.video = true;
     }
+    return {
+      img: img,
+      ready: ready
+    };
   };
 
   setImage = function(image) {
-    var a, el, err, gal, i, img, info, j, len1, placeHolder, rating, ratingText, ready, ref, source, tag, tags;
+    var a, el, err, gal, i, img, info, j, len1, meta, placeHolder, rating, ratingText, ready, ref, ref1, source, tag, tags;
     try {
       gal = g.gallery;
       cb.pause();
@@ -393,57 +473,39 @@
         download: image.filename,
         className: 'current'
       });
-      switch (image.type) {
-        case "jpg":
-        case "jpeg":
-        case "gif":
-        case "png":
-          img = $.el('img', {
-            src: image.url,
-            alt: image.tags
-          });
-          ready = function() {
-            return img.complete;
-          };
-          break;
-        default:
-          img = $.el('video', {
-            src: image.url,
-            poster: image.thumb,
-            autoplay: true,
-            loop: true
-          });
-          ready = function() {
-            return img.readyState > 2;
-          };
+      ref = preloads[image.url] || mkImgEl(image), ready = ref.ready, img = ref.img;
+      placeHolder = $.el('div', {
+        className: 'spinner'
+      });
+      $.add(a, placeHolder);
+      $.asap(ready, function() {
+        if (i !== g.currentImageIndex) {
+          return;
+        }
+        $.replace(placeHolder, img);
+        return preload();
+      });
+      if (vidMeta) {
+        clearInterval(vidMeta);
+        vidMeta = false;
+        $('#gal-vid').textContent = '';
       }
-      if (ready()) {
-        $.add(a, img);
-        preload();
-      } else {
-        placeHolder = $.el('div', {
-          className: 'spinner'
-        });
-        $.add(a, placeHolder);
-        $.asap(ready, function() {
-          if (i !== g.currentImageIndex) {
-            return;
-          }
-          $.replace(placeHolder, img);
-          return preload();
-        });
+      if (image.video) {
+        handleVid(img);
       }
       $.replace(el, a);
       a.focus();
       info = $('.gal-ex-info', gal);
-      info.textContent = "ID: " + image.id + "\nScore: " + (image.score || 0) + "\nPosted: " + image.age + "\nWidth: " + image.width + "\nHeight: " + image.height + "\nType: " + (image.type.toUpperCase());
-      info.innerHTML = "<p>" + (info.textContent.split('\n').join('</p><p>')) + "</p>";
+      info.textContent = '';
+      meta = $.escape("ID: " + image.id + "\nScore: " + (image.score || 0) + "\nPosted: " + image.age + "\nWidth: " + image.width + "\nHeight: " + image.height + "\nType: " + (image.type.toUpperCase()));
+      meta = $.html("<p>" + (meta.split('\n').join('</p><p>')) + "</p>");
+      $.add(info, meta);
       tags = $.el('p', {
         textContent: "Tags: "
       });
-      ref = image.tags.split(' ');
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        tag = ref[j];
+      ref1 = image.tags.split(' ');
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        tag = ref1[j];
         $.add(tags, $.el('a', {
           href: g.baseURL + "page=post&s=list&tags=" + tag,
           textContent: tag,
@@ -486,10 +548,9 @@
       if (i + THRESHOLD > g.images.length) {
         return updateImages();
       }
-    } catch (_error) {
-      err = _error;
-      console.log(err.message);
-      return console.log(err.stack);
+    } catch (error1) {
+      err = error1;
+      return $["throw"](err);
     }
   };
 
@@ -513,11 +574,47 @@
         results.push(mkImage(post.post));
       }
       return results;
-    } catch (_error) {
-      err = _error;
-      console.log(err.message);
-      return console.log(err.stack);
+    } catch (error1) {
+      err = error1;
+      return $["throw"](err);
     }
+  };
+
+  handleVid = function(vid) {
+    var el;
+    el = $('#gal-vid');
+    return vidMeta = setInterval((function() {
+      var err;
+      try {
+        return el.textContent = "(" + (formatTime(vid.currentTime)) + " / " + (formatTime(vid.duration)) + ")";
+      } catch (error1) {
+        err = error1;
+        return $["throw"](err);
+      }
+    }), 10);
+  };
+
+  padNum = function(num) {
+    num = "" + num;
+    while (num.length < 2) {
+      num = "0" + num;
+    }
+    return num;
+  };
+
+  formatTime = function(t) {
+    var f, hour, min, msec, sec;
+    f = function(x) {
+      return Math.floor(x);
+    };
+    g = function(x) {
+      return padNum(x % 60);
+    };
+    msec = padNum(f(t * 100) % 100);
+    sec = g(f(t));
+    min = g(f(t / 60));
+    hour = g(f(t / 3600));
+    return hour + ":" + min + ":" + sec + "." + msec;
   };
 
   mkImage = function(p) {
@@ -598,7 +695,7 @@
   };
 
   setup = function() {
-    var attr, galToggle, j, len1, ref;
+    var attr, galToggle, j, len1, path, ref;
     g.images = new SimpleDict();
     g.host = d.location;
     g.attr = new SimpleDict();
@@ -611,7 +708,8 @@
     if (g.attr.s === 'view') {
       return;
     }
-    g.baseURL = g.host.protocol + "//" + g.host.hostname + "/index.php?";
+    path = (g.host.pathname.split('/').slice(0, -1).join('/')) + "/";
+    g.baseURL = g.host.protocol + "//" + g.host.hostname + "/" + path + "index.php?";
     g.attr.push('page', 'dapi');
     g.attr.push('q', 'index');
     g.attr.push('s', 'post');
@@ -638,10 +736,9 @@
 
   try {
     setup();
-  } catch (_error) {
-    err = _error;
-    console.log(err.message);
-    console.log(err.stack);
+  } catch (error1) {
+    err = error1;
+    $["throw"](err);
   }
 
 }).call(this);

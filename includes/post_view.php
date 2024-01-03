@@ -23,7 +23,7 @@
 		exit;
 	}
 	$prev_next = $post->prev_next($id);
-	
+
 	if(!is_dir("$main_cache_dir".""."\cache/$id"))
 		$cache->create_page_cache("cache/$id");
 	$data = $cache->load("cache/".$id."/post.cache");
@@ -40,12 +40,12 @@
 		$ttags = explode(" ",$tags);
 		$rating = $post_data['rating'];
 		$lozerisdumb = "- ".str_replace('_',' ',str_replace('&quot;','\\"',$tags));
-		require "includes/header.php";	
+		require "includes/header.php";
 		echo '<section><div id="post-view">';
 		if($post->has_children($id))
 			echo '<div style="background: #f0f0f0; padding: 10px; text-align: center; border: 3px solid #dadada;">This post has <a href="index.php?page=post&s=list&tags=parent:'.$id.'"><b>child posts</b></a>. Child posts are often subsequent pages of a doujinshi, or minor variations of the parent post.</div><br><br>';
 
-		echo '<div class="sidebar"><div class="space">
+		echo '<aside class="sidebar"><div class="space">
 		<h5>Search</h5>
 		<form action="index.php?page=search" method="post">
 		<input id="tags" name="tags" size="20" type="text" />
@@ -60,7 +60,7 @@
 			$count = $post->index_count($current);
 			echo '<li><span style="color: #a0a0a0;">? <a href="index.php?page=post&amp;s=list&amp;tags='.$current.'">'.str_replace('_',' ',$current)."</a> ".$count['index_count']."</span></li>";
 		}
-		echo '<li><br /><br /><br /><br /><br /><br /><br /><br /></li></ul></div></div>
+		echo '<li><br /><br /><br /><br /><br /><br /><br /><br /></li></ul></div></aside>
 		<b>Score</b> <a href="#" onclick="Javascript:post_vote(\''.$id.'\', \'up\')">+</a> <a href="#" onclick="Javascript:post_vote(\''.$id.'\', \'down\')">-</a> <a id="psc">'.$post_data['score'].'</a> ';
 		if($post_data['spam'] == false)
 			echo '<a id="rp'.$id.'"></a><a href="#" id="rpl'.$id.'" onclick="Element.toggle(\'report_form\')">Report post.</a><br /><form id="report_form" method="post" action="./public/report.php?type=post&amp;rid='.$id.'" style="display: none;">Reason for report:<br /><input type="text" name="reason" value=""/><input type="submit" name="submit" value="" style="display: none;"/></form>';
@@ -88,7 +88,7 @@
 		Note.post_id = '.$id.';';
 		$notes = '';
 		$note_data = $post->get_notes($id);
-		while($retme = $note_data->fetch_assoc())		
+		while($retme = $note_data->fetch_assoc())
 			echo 'Note.all.push(new Note('.$retme['id'].', false));';
 		echo 'Note.updateNoteCount();
 		Note.show();
@@ -128,7 +128,7 @@
 		</td></tr><tr><td><input type="submit" name="submit" value="Save changes" />
 		</td></tr></table></form>
 		<script type="text/javascript">
-			$(\'pconf\').value=1;			
+			$(\'pconf\').value=1;
 		</script>
 		<script type="text/javascript">
 		var my_tags = readCookie("tags").split(/[, ]|%20+/g);
@@ -139,7 +139,7 @@
 		{
 			if(my_tags[i] != "" && my_tags[i] != " " && i <= my_tags_length)
 			{
-				temp_my_tags[g] = my_tags[i];				
+				temp_my_tags[g] = my_tags[i];
 				g++;
 			}
 		}
@@ -165,7 +165,7 @@
 		{
 			var input = $(\'post_tags\');
 			var temp = [tag];
-            
+
 			tags = input.value.split(" ");
 			if(tags.include(tag))
 			{
@@ -204,7 +204,7 @@
 		$page = 0;
 		$pid = 0;
 	}
-		
+
 	$data = '';
 	if(file_exists("cache/$id/comments.$pid.cache"))
 		$data = $cache->load("cache/$id/comments.$pid.cache");
@@ -218,7 +218,7 @@
 	{
 		if($got_permission === false)
 			ob_start();
-		
+
 		//Pagination starts here with dependencies. No need to change this usually... :3
 		$comment = new comment();
 		$misc = new misc();
@@ -250,7 +250,7 @@
 			++$ccount;
 		}
 		echo "<br /><br /><div id='paginator'>";
-		
+
 		//Functionized the paginator... Let's see how well this works in practice.
 		$misc = new misc();
 		print $misc->pagination($_GET['page'],$_GET['s'],$id,$limit,$page_limit,$count,$pid);
@@ -268,7 +268,7 @@
 		<input type="hidden" name="conf" id="conf" value="0"/>
 		</td></tr></table></form>
 		<script type="text/javascript">
-		document.getElementById(\'conf\').value=1;			
+		document.getElementById(\'conf\').value=1;
 		</script>';
 		if($got_permission === false)
 		{

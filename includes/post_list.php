@@ -13,7 +13,7 @@
 var posts = {}; var pignored = {};
 </script>
 <section><div id="post-list">
-<div class="sidebar">
+<aside class="sidebar">
 <div class="space">
 <h5>Search</h5>
 <form action="index.php?page=search" method="post">
@@ -22,10 +22,8 @@ var posts = {}; var pignored = {};
 </form>
 <small>(Supports wildcard *)</small>
 </div>
-<div class="space"></div>
-<div id="tag_list">
-<h5>Tags</h5>
-<ul>
+<div class="space">
+</div>
 <?php
 	/*Begining of tag listing on left side of site.
 	First let's get the current page we're on.	*/
@@ -36,9 +34,14 @@ var posts = {}; var pignored = {};
 	$search = new search();
 	$no_cache = null;
 	$tag_count = null;
-	//No tags  have been searched for so let's check the last_update value to update our main page post count for parent posts. Updated once a day.
+	// No tags  have been searched for so let's check the last_update value to update our main page post count for parent posts. Updated once a day.
 	if(!isset($_GET['tags']) || isset($_GET['tags']) && $_GET['tags'] == "all" || isset($_GET['tags']) && $_GET['tags'] == "")
 	{
+        if(isset($_GET['sort']) && $_GET['sort'] != "") {
+            $sort = $_GET['sort'];
+        } else {
+            $sort = "score";
+        }
 		$query = "SELECT pcount, last_update FROM $post_count_table WHERE access_key='posts'";
 		$result = $db->query($query);
 		$row = $result->fetch_assoc();
@@ -109,6 +112,7 @@ var posts = {}; var pignored = {};
 		}
 	}
 	//No images found
+    
 	if($numrows == 0)
 		print '</ul></div></div><article><div><h1>Nobody here but us chickens!</h1>';
 	else
@@ -117,10 +121,14 @@ var posts = {}; var pignored = {};
 			$page = $db->real_escape_string($_GET['pid']);
 		else
 			$page = 0;
-		if(!isset($_GET['tags']) || isset($_GET['tags']) && $_GET['tags'] == "all" || isset($_GET['tags']) && $_GET['tags'] == "")
-			$query = "SELECT id, image, directory, score, rating, tags, owner FROM $post_table WHERE parent = '0' " . $search->blacklist_fragment() . " ORDER BY id DESC LIMIT $page, $limit";
-		else
-		{
+		if(!isset($_GET['tags']) || isset($_GET['tags']) && $_GET['tags'] == "all" || isset($_GET['tags']) && $_GET['tags'] == "") {
+			if ($sort == 'score') { 
+				$scoresort = "score DESC,";
+			} else {
+				$scoresort = "";
+			}
+			$query = "SELECT id, image, directory, score, rating, tags, owner FROM $post_table WHERE parent = '0' " . $search->blacklist_fragment() . " ORDER BY $scoresort id DESC LIMIT $page, $limit";
+		} else {
 			if($no_cache === true || $tag_count > 1 || strpos(strtolower($new_tag_cache),"user:") !== false || strpos(strtolower($new_tag_cache),"rating:") !== false || substr($new_tag_cache,0,1) == "-" || strpos(strtolower($new_tag_cache),"*") !== false || strpos(strtolower($new_tag_cache),"parent:") !== false)
 				$query = $query." LIMIT $page, $limit";
 		}
@@ -151,10 +159,28 @@ var posts = {}; var pignored = {};
 					}
 				}
 				$images .= '<span class="thumb"><a id="p'.$row['id'].'" href="index.php?page=post&amp;s=view&amp;id='.$row['id'].'"><img src="'.$thumbnail_url.$misc->getThumb($row['image'], $row['directory']).'" alt="post" border="0" title="'.$row['tags'].' score:'.$row['score'].' rating:'. $row['rating'].'"/></a></span>';
-				$script .= 'posts['.$row['id'].'] = {\'tags\':\''.strtolower(str_replace('\\',"&#92;",str_replace("'","&#039;",$tags))).'\'.split(/ /g), \'rating\':\''.$row['rating'].'\', \'score\':'.$row['score'].', \'user\':\''.str_replace('\\',"&#92;",str_replace(' ','%20',str_replace("'","&#039;",$row['owner']))).'\'};
-				';
+				$script .= 'posts['.$row['id'].'] = {\'tags\':\''.strtolower(str_replace('\\',"&#92;",str_replace("'","&#039;",$tags))).'\'.split(/ /g), \'rating\':\''.$row['rating'].'\', \'score\':'.$row['score'].', \'user\':\''.str_replace('\\',"&#92;",str_replace(' ','%20',str_replace("'","&#039;",$row['owner']))).'\'};';
 			}
 			$result->free_result();
+            
+            $newest = '';
+
+            if ($sort == "score") 
+            {
+                $query = "SELECT id, image, directory, score, rating, tags, owner FROM $post_table WHERE parent = '0' " . $search->blacklist_fragment() . " ORDER BY id DESC LIMIT 8";
+                $result = $db->query($query) or die($db->error);
+                //Limit main tag listing to $tags_limit tags. Keep the loop down to the minimum really.
+                $newest .= "<div id='newest_images'><h5><a href=index.php?page=post&s=list&tags=all&sort=newest>Newest Images</a></h5><div>";
+                while($row = $result->fetch_assoc())
+                {
+                    $newest .= '<span class="thumb"><a id="p'.$row['id'].'" href="index.php?page=post&amp;s=view&amp;id='.$row['id'].'"><img src="'.$thumbnail_url.$misc->getThumb($row['image'], $row['directory']).'" alt="post" border="0" title="'.$row['tags'].' score:'.$row['score'].' rating:'. $row['rating'].'"/></a></span>';
+                    $script .= 'posts['.$row['id'].'] = {\'tags\':\''.strtolower(str_replace('\\',"&#92;",str_replace("'","&#039;",$tags))).'\'.split(/ /g), \'rating\':\''.$row['rating'].'\', \'score\':'.$row['score'].', \'user\':\''.str_replace('\\',"&#92;",str_replace(' ','%20',str_replace("'","&#039;",$row['owner']))).'\'};';
+                }
+                $result->free_result();
+                $newest .= "<div class=space style='clear:both;'></div></div></div><div id='highest_rated_images'><h5>Highest Rated Images</h5><div>";
+                $images .= "</div></div>";
+            }
+
 			if(isset($_GET['tags']) && $_GET['tags'] != "" && $_GET['tags'] != "all")
 				$ttags = $db->real_escape_string(str_replace("'","&#039;",$_GET['tags']));
 			else
@@ -165,6 +191,7 @@ var posts = {}; var pignored = {};
 			Needs to be escaped before query is sent!
 			URL Decode and entity decode for the links
 			*/
+			echo "<div id='tag_list'><h5>Tags</h5><ul>";
 			foreach($gtags as $current)
 			{
 				$query = "SELECT index_count FROM $tag_index_table WHERE tag='".$db->real_escape_string(str_replace("'","&#039;",$current))."'";
@@ -175,18 +202,19 @@ var posts = {}; var pignored = {};
 				echo '<li><a href="index.php?page=post&amp;s=list&amp;tags='.$t_decode."+".$c_decode.'">+</a><a href="index.php?page=post&amp;s=list&amp;tags='.$t_decode."+-".$c_decode.'">-</a> <span style="color: #a0a0a0;">? <a href="index.php?page=post&amp;s=list&amp;tags='.$c_decode.'">'.str_replace('_',' ',$current).'</a> '.$row['index_count'].'</span></li>';
 			}
 			//Print out image results and filter javascript
-			echo '<li><br /><br /></li></ul></div></div><article>
+			echo '<li><br /><br /></li></ul></div></aside><article>
 <div style="text-align: center; padding: 3px 6px; margin: 15px;">
 Filter content you don\'t want to see with "-<i>tag</i>". For instance, -loli would remove all content tagged loli from the post list.
 </div>';
 			$images .= "</div><br /><br /><div style='margin-top: 550px; text-align: right;'><a id=\"pi\" href=\"#\" onclick=\"showHideIgnored('0','pi'); return false;\"></a></div><div id='paginator'>";
 			$script .= 'filterPosts(posts);
 			</script>';
+            echo $newest;
 			echo $images;
 			echo $script;
 
 			//Pagination function. This should work for the whole site... Maybe.
-			print $misc->pagination($_GET['page'],$_GET['s'],$id,$limit,$page_limit,$numrows,$_GET['pid'],$_GET['tags']);
+			print $misc->pagination($_GET['page'],$_GET['s'],$id,$limit,$page_limit,$numrows,$_GET['pid'],$_GET['tags'],false,$sort);
 
 		}
 		/* XXX FIXME
